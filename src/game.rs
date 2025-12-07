@@ -6,6 +6,7 @@ use crate::sprite::Sprite;
 pub struct Game {
     pub player: Player,
     pub ecs_manager: ECSManager,
+    
 }
 
 impl Game {
