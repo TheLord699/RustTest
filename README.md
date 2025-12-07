@@ -1,0 +1,1 @@
+Trying to learn Rust, so far I am enjoying it way more than C++, since I come from python originally and the syntax looks far more readable 
