@@ -1,5 +1,5 @@
 use crate::sprite::Sprite;
-use minifb::Window;
+use minifb::{Window, WindowOptions, Scale, Key};
 use std::collections::HashMap;
 
 pub struct SpriteInstance {
@@ -19,7 +19,8 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(title: &str, width: usize, height: usize) -> Self {
-        let window = Window::new(title, width, height, minifb::WindowOptions::default()).unwrap();
+        let window = Window::new(title, width,height, WindowOptions{resize: true, scale: Scale::X1, ..WindowOptions::default()}).unwrap();
+
         let buffer = vec![0; width * height];
 
         Renderer {
