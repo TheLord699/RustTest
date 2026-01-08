@@ -1,0 +1,17 @@
+{
+    "comments":{
+        "note": "not intending to use any of this info, ts just for shit Ill forget",
+        "attack_sequence": "the amount of damage for each attack, so 1st will deal 10 and 2nd will deal 15"
+    },
+
+    "Bug":{
+        "health": 100,
+        "speed": 5,
+        "sprite": "assets/sprites/bug.png",
+        "states": {"running": {"animation": null, "animation_speed": 1.2}},
+        "scale": 3,
+        "hitbox_scale": 3,
+        "dimensions": [5, 5],
+        "attack_sequence": [10, 15]
+    }
+}
