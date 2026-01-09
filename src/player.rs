@@ -1,4 +1,4 @@
-use crate::ecs::{ECSManager, Entity};
+use crate::ecs::{ECSManager, Entity, Collider};
 use crate::renderer::Renderer;
 use crate::sprite::Sprite;
 use minifb::Key;
@@ -13,13 +13,16 @@ pub struct Player {
 impl Player {
     pub fn new(renderer: &mut Renderer) -> Self {
         let mut entity = Entity::new("player", 100, 100, 2);
-
         let sprite = Sprite::load("assets/sprites/bug.png").scale(3);
-        entity.set_sprite(sprite.clone());
+
+        let collider = Collider {width: (sprite.width * 2 / 3) as u32, height: (sprite.height * 2 / 3) as u32, offset_x: 0,offset_y: 0,};
+
+        // let mut entity = Entity::new("player", 100, 100, 2).with_collider(Some(collider), false); with collider still not setting centre correctly
         
         let collider_width = (sprite.width * 2 / 3) as u32;
         let collider_height = (sprite.height * 2 / 3) as u32;
         entity.set_collider_centered(collider_width, collider_height);
+        entity.set_sprite(sprite.clone());
 
         renderer.add_sprite_instance(
             "player",
@@ -42,7 +45,21 @@ impl Player {
     fn process_input(&mut self, renderer: &Renderer) {
         self.capture_keyboard_input(renderer);
         self.normalize_movement();
+    }   
+
+    /*
+    fn handle_collisions(&mut self, ecs_manager: &ECSManager) {
+        if let Some(player_idx) = self.find_player_in_ecs(ecs_manager) {
+            if let Some(collisions) = ecs_manager.get_collisions(player_idx) {
+                for collision in collisions {
+                    if collision.name == "test"{
+                        return;
+                    }
+                }
+            }
+        }
     }
+    */
 
     fn capture_keyboard_input(&mut self, renderer: &Renderer) {
         self.input_dx = 0.0;

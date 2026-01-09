@@ -2,6 +2,7 @@ use crate::ecs::ECSManager;
 use crate::player::Player;
 use crate::renderer::Renderer;
 use crate::enemy_manager::EnemyManager;
+use std::time::{Duration, Instant};
 
 pub struct Game {
     pub player: Player,
@@ -10,6 +11,8 @@ pub struct Game {
 }
 
 impl Game {
+    const fps: u64 = 60;
+
     pub fn new(renderer: &mut Renderer, width: i32, height: i32) -> Self {
         let mut ecs_manager = ECSManager::new(width, height);
         let mut enemy_manager = EnemyManager::new("assets/settings/enemies.json");
@@ -31,9 +34,19 @@ impl Game {
     }
 
     pub fn run(&mut self, renderer: &mut Renderer) {
+        let frame_duration = Duration::from_millis(1000 / Self::fps);
+
         while renderer.is_open() {
+            let start = Instant::now();
+
             self.update(renderer);
             renderer.render_frame();
+
+            let elapsed = start.elapsed();
+            if elapsed < frame_duration {
+                std::thread::sleep(frame_duration - elapsed);
+            }
         }
     }
 }
+

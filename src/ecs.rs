@@ -17,7 +17,9 @@ pub struct Entity {
     pub velocity_y: f32,
     pub z_order: i32,
     pub sprite: Option<Sprite>,
+    sprite_sheet: Option<Sprite>,
     pub collider: Option<Collider>,
+    pub simple_collisions: bool,
 }
 
 impl Entity {
@@ -30,9 +32,25 @@ impl Entity {
             velocity_y: 0.0,
             z_order,
             sprite: None,
+            sprite_sheet: None,
             collider: None,
+            simple_collisions: false,
         }
     }
+
+    pub fn with_collider(mut self, collider: Option<Collider>, simple_collisions: bool) -> Self {
+        self.collider = collider;
+
+        if simple_collisions {
+            if let Some(ref c) = self.collider {
+                self.set_collider_centered(c.width, c.height);
+            }
+        }
+
+        self.simple_collisions = simple_collisions;
+        self
+    }
+
 
     pub fn set_sprite(&mut self, sprite: Sprite) {
         self.sprite = Some(sprite);
@@ -149,4 +167,4 @@ impl ECSManager {
         
         collisions
     }
-}
+} 

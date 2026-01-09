@@ -44,7 +44,7 @@ impl Renderer {
     }
 
     pub fn render_frame(&mut self) {
-        self.buffer.fill(0);
+        self.buffer.fill(0x00000000);
 
         let mut sprite_instances: Vec<&SpriteInstance> = self.sprites.values().collect();
         sprite_instances.sort_by_key(|s| s.z_order);

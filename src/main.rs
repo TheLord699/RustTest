@@ -4,6 +4,7 @@ mod ecs;
 mod player;
 mod game;
 mod enemy_manager;
+mod helper_methods;
 
 use crate::game::Game;
 use crate::renderer::Renderer;
