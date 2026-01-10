@@ -1,5 +1,5 @@
 use crate::sprite::Sprite;
-use minifb::{Window, WindowOptions, Scale, Key};
+use minifb::{Window, WindowOptions, Scale};
 use std::collections::HashMap;
 
 pub struct SpriteInstance {
@@ -15,21 +15,37 @@ pub struct Renderer {
     pub width: usize,
     pub height: usize,
     pub sprites: HashMap<String, SpriteInstance>,
+    pub camera_x: i32,
+    pub camera_y: i32,
 }
 
 impl Renderer {
     pub fn new(title: &str, width: usize, height: usize) -> Self {
-        let window = Window::new(title, width,height, WindowOptions{resize: true, scale: Scale::X1, ..WindowOptions::default()}).unwrap();
-
-        let buffer = vec![0; width * height];
+        let window = Window::new(
+            title,
+            width,
+            height,
+            WindowOptions {
+                resize: true,
+                scale: Scale::X1,
+                ..WindowOptions::default()
+            },
+        ).unwrap();
 
         Renderer {
             window,
-            buffer,
+            buffer: vec![0; width * height],
             width,
             height,
             sprites: HashMap::new(),
+            camera_x: 0,
+            camera_y: 0,
         }
+    }
+
+    pub fn set_camera(&mut self, x: i32, y: i32) {
+        self.camera_x = x;
+        self.camera_y = y;
     }
 
     pub fn add_sprite_instance(&mut self, name: &str, sprite_instance: SpriteInstance) {
@@ -37,25 +53,25 @@ impl Renderer {
     }
 
     pub fn move_sprite(&mut self, name: &str, x: i32, y: i32) {
-        if let Some(sprite_instance) = self.sprites.get_mut(name) {
-            sprite_instance.position_x = x;
-            sprite_instance.position_y = y;
+        if let Some(s) = self.sprites.get_mut(name) {
+            s.position_x = x;
+            s.position_y = y;
         }
     }
 
     pub fn render_frame(&mut self) {
         self.buffer.fill(0x00000000);
 
-        let mut sprite_instances: Vec<&SpriteInstance> = self.sprites.values().collect();
-        sprite_instances.sort_by_key(|s| s.z_order);
+        let mut sprites: Vec<&SpriteInstance> = self.sprites.values().collect();
+        sprites.sort_by_key(|s| s.z_order);
 
-        for sprite_instance in sprite_instances {
-            sprite_instance.sprite.draw(
+        for s in sprites {
+            s.sprite.draw(
                 &mut self.buffer,
                 self.width,
                 self.height,
-                sprite_instance.position_x,
-                sprite_instance.position_y,
+                s.position_x - self.camera_x,
+                s.position_y - self.camera_y,
             );
         }
 

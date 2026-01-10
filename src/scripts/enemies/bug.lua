@@ -1,7 +1,11 @@
-function bug_update()
-    entity:move(2, 0)
+BugAI = {}
 
-    if entity:x() > 600 then
-        entity:move(-4, 0)
+function BugAI.update(enemy, player, dt)
+    if player.x > enemy.x then
+        enemy.vx = 50
+    else
+        enemy.vx = -50
     end
 end
+
+return BugAI
