@@ -5,6 +5,7 @@ mod camera;
 mod player;
 mod game;
 mod enemy_manager;
+mod animation_manager;
 mod helper_methods;
 mod scripting;
 

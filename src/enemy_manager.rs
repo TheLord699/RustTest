@@ -4,7 +4,6 @@ use crate::sprite::Sprite;
 use crate::ecs::Entity;
 use serde_json::Value;
 use crate::helper_methods::load_json;
-use std::fs;
 
 pub struct EnemyManager {
     enemy_data: Value,
@@ -44,6 +43,8 @@ impl EnemyManager {
                 entity.set_sprite(sprite.clone());
                 ecs_manager.add_entity(entity);
 
+                let flip_horizontal = enemy_info["flip_horizontal"].as_bool().unwrap_or(false);
+
                 renderer.add_sprite_instance(
                     enemy_type,
                     crate::renderer::SpriteInstance {
@@ -51,6 +52,7 @@ impl EnemyManager {
                         position_x: x,
                         position_y: y,
                         z_order: 1,
+                        flip_horizontal,
                     },
                 );
             }

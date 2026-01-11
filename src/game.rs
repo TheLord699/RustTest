@@ -37,9 +37,10 @@ impl Game {
         ecs_manager.add_entity(player.entity.clone());
         enemy_manager.spawn_enemy("Bug", &mut ecs_manager, renderer, 400, 300);
 
-        let camera = Camera::new(width, height);
+        let mut camera = Camera::new(width, height);
+        camera.follow(player.entity.position_x, player.entity.position_y);
 
-        Game {
+        let mut game = Game {
             player,
             ecs_manager,
             ai_scripting,
@@ -47,14 +48,19 @@ impl Game {
             camera,
             stream,
             sink,
-        }
+        };
+
+        renderer.set_camera(game.camera.x, game.camera.y);
+
+        game
     }
 
     pub fn update(&mut self, renderer: &mut Renderer) {
         self.player.update(renderer, &mut self.ecs_manager);
-        self.camera.follow(
+        self.camera.follow_smooth(
             self.player.entity.position_x,
             self.player.entity.position_y,
+            0.1,
         );
         renderer.set_camera(self.camera.x, self.camera.y);
     }

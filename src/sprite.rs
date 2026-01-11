@@ -9,7 +9,13 @@ pub struct Sprite {
 
 impl Sprite {
     pub fn load(path: &str) -> Self {
-        let img = image::open(path).expect("Failed to open image");
+        let img = match image::open(path) {
+            Ok(img) => img,
+            Err(_) => image::open("assets/sprites/missing_texture.png").unwrap_or_else(|_| {
+                image::DynamicImage::new_rgba8(16, 16)
+            }),
+        };
+
         let (width, height) = img.dimensions();
         let mut pixels = Vec::with_capacity((width * height) as usize);
 
@@ -72,6 +78,35 @@ impl Sprite {
                 if buffer_col < 0 || buffer_col >= buffer_width as i32 { continue; }
 
                 let color = self.pixels[(y as u32 * self.width + x as u32) as usize];
+                if (color >> 24) == 0 { continue; }
+
+                buffer[base_index + buffer_col as usize] = color;
+            }
+        }
+    }
+
+    pub fn draw_flipped(
+        &self,
+        buffer: &mut [u32],
+        buffer_width: usize,
+        buffer_height: usize,
+        center_x: i32,
+        center_y: i32,
+    ) {
+        let half_width = (self.width / 2) as i32;
+        let half_height = (self.height / 2) as i32;
+
+        for y in 0..self.height as i32 {
+            let buffer_row = center_y - half_height + y;
+            if buffer_row < 0 || buffer_row >= buffer_height as i32 { continue; }
+
+            let base_index = buffer_row as usize * buffer_width;
+            for x in 0..self.width as i32 {
+                let flipped_x = (self.width as i32 - 1) - x;
+                let buffer_col = center_x - half_width + x;
+                if buffer_col < 0 || buffer_col >= buffer_width as i32 { continue; }
+
+                let color = self.pixels[(y as u32 * self.width + flipped_x as u32) as usize];
                 if (color >> 24) == 0 { continue; }
 
                 buffer[base_index + buffer_col as usize] = color;

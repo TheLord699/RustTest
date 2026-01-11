@@ -20,4 +20,15 @@ impl Camera {
         self.x = target_x - self.viewport_width / 2;
         self.y = target_y - self.viewport_height / 2;
     }
+
+    pub fn follow_smooth(&mut self, target_x: i32, target_y: i32, modifier: f32) {
+        let target_x = target_x - self.viewport_width / 2;
+        let target_y = target_y - self.viewport_height / 2;
+
+        let dx = target_x - self.x;
+        let dy = target_y - self.y;
+
+        self.x += (dx as f32 * modifier) as i32;
+        self.y += (dy as f32 * modifier) as i32;
+    }
 }
