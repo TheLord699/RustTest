@@ -6,7 +6,7 @@ use serde_json::Value;
 
 pub struct EnemyManager {
     enemy_data: Value,
-    pub ai: EnemyAI,
+    //pub ai: EnemyAI,
 }
 
 impl EnemyManager {
@@ -27,14 +27,14 @@ impl EnemyManager {
             }
         };
         
-        let mut ai = EnemyAI::new();
+        //let mut ai = EnemyAI::new();
         
         // Try to load AI scripts, but don't crash if it fails
-        if let Err(e) = ai.load_all_ai_scripts("assets/scripts") {
-            eprintln!("Warning: Failed to load AI scripts: {}", e);
-        }
+        //if let Err(e) = ai.load_all_ai_scripts("assets/scripts") {
+        //    eprintln!("Warning: Failed to load AI scripts: {}", e);
+        //}
         
-        EnemyManager { enemy_data, ai }
+        EnemyManager { enemy_data } // EnemyManager { enemy_data, ai }
     }
     
     pub fn spawn_enemy(

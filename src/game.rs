@@ -133,21 +133,21 @@ impl Game {
             );
             
             // Calculate AI velocity
-            match self.enemy_manager.ai.update_enemy(
-                &enemy_type,
-                enemy_id,
-                &mut temp_enemy,
-                &temp_player,
-                stats,
-            ) {
-                Ok((ai_vx, ai_vy)) => {
+            //match self.enemy_manager.ai.update_enemy(
+               // &enemy_type,
+             //   enemy_id,
+           //     &mut temp_enemy,
+              //  &temp_player,
+             //   stats,
+           // ) {
+             //   Ok((ai_vx, ai_vy)) => {
                     // Store movement for this enemy
-                    enemy_movements.push((enemy_id, ai_vx * Self::FIXED_DELTA, ai_vy * Self::FIXED_DELTA));
-                }
-                Err(e) => {
-                    eprintln!("AI error for enemy {}: {}", enemy_type, e);
-                }
-            }
+            //        enemy_movements.push((enemy_id, ai_vx * Self::FIXED_DELTA, ai_vy * Self::FIXED_DELTA));
+            //    }
+              //  Err(e) => {
+             //       eprintln!("AI error for enemy {}: {}", enemy_type, e);
+             //   }
+          //  }
         }
         
         // Apply movements one at a time to prevent chain reactions
