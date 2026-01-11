@@ -2,9 +2,9 @@ use image::GenericImageView;
 
 #[derive(Clone)]
 pub struct Sprite {
-    pub width: u32,
-    pub height: u32,
-    pub pixels: Vec<u32>,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) pixels: Vec<u32>,
 }
 
 impl Sprite {
@@ -15,101 +15,94 @@ impl Sprite {
                 image::DynamicImage::new_rgba8(16, 16)
             }),
         };
-
+        
         let (width, height) = img.dimensions();
         let mut pixels = Vec::with_capacity((width * height) as usize);
-
-        for y in 0..height {
-            for x in 0..width {
-                let p = img.get_pixel(x, y);
-                let r = p[0];
-                let g = p[1];
-                let b = p[2];
-                let a = p[3];
-                let color = ((a as u32) << 24) | ((r as u32) << 16) | ((g as u32) << 8) | b as u32;
-                pixels.push(color);
-            }
+        
+        for pixel in img.pixels() {
+            let (_, _, p) = pixel;
+            let r = p[0];
+            let g = p[1];
+            let b = p[2];
+            let a = p[3];
+            pixels.push(((a as u32) << 24) | ((r as u32) << 16) | ((g as u32) << 8) | b as u32);
         }
-
+        
         Sprite { width, height, pixels }
     }
-
+    
+    pub fn width(&self) -> u32 { self.width }
+    pub fn height(&self) -> u32 { self.height }
+    
     pub fn scale(&self, scale: u32) -> Self {
+        if scale == 1 { return self.clone(); }
+        
         let new_width = self.width * scale;
         let new_height = self.height * scale;
         let mut pixels = vec![0; (new_width * new_height) as usize];
-
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let color = self.pixels[(y * self.width + x) as usize];
-                if (color >> 24) == 0 { continue; }
-
-                for dy in 0..scale {
-                    for dx in 0..scale {
-                        let sx = x * scale + dx;
-                        let sy = y * scale + dy;
-                        pixels[(sy * new_width + sx) as usize] = color;
-                    }
+        let old_pixels = &self.pixels;
+        let old_width = self.width;
+        
+        for (idx, &color) in old_pixels.iter().enumerate() {
+            if (color >> 24) == 0 { continue; }
+            let x = (idx as u32) % old_width;
+            let y = (idx as u32) / old_width;
+            let base_y = y * scale * new_width;
+            
+            for dy in 0..scale {
+                let row_start = (base_y + dy * new_width + x * scale) as usize;
+                for dx in 0..scale {
+                    pixels[row_start + dx as usize] = color;
                 }
             }
         }
-
+        
         Sprite { width: new_width, height: new_height, pixels }
     }
-
-    pub fn draw(
-        &self,
-        buffer: &mut [u32],
-        buffer_width: usize,
-        buffer_height: usize,
-        center_x: i32,
-        center_y: i32,
-    ) {
-        let half_width = (self.width / 2) as i32;
-        let half_height = (self.height / 2) as i32;
-
-        for y in 0..self.height as i32 {
-            let buffer_row = center_y - half_height + y;
-            if buffer_row < 0 || buffer_row >= buffer_height as i32 { continue; }
-
-            let base_index = buffer_row as usize * buffer_width;
-            for x in 0..self.width as i32 {
-                let buffer_col = center_x - half_width + x;
-                if buffer_col < 0 || buffer_col >= buffer_width as i32 { continue; }
-
-                let color = self.pixels[(y as u32 * self.width + x as u32) as usize];
-                if (color >> 24) == 0 { continue; }
-
-                buffer[base_index + buffer_col as usize] = color;
+    
+    pub fn draw(&self, buffer: &mut [u32], buf_w: usize, buf_h: usize, cx: i32, cy: i32) {
+        let hw = (self.width / 2) as i32;
+        let hh = (self.height / 2) as i32;
+        let start_y = (cy - hh).max(0) as usize;
+        let end_y = ((cy + hh).min(buf_h as i32 - 1) as usize).min(buf_h);
+        let start_x = (cx - hw).max(0) as i32;
+        
+        for y in start_y..end_y {
+            let src_y = (y as i32 - (cy - hh)) as u32;
+            let buf_idx = y * buf_w;
+            let src_row = (src_y * self.width) as usize;
+            
+            for x in start_x..(cx + hw) as i32 {
+                if x >= buf_w as i32 { break; }
+                let src_x = (x - (cx - hw)) as u32;
+                let color = self.pixels[src_row + src_x as usize];
+                if color >> 24 != 0 {
+                    buffer[buf_idx + x as usize] = color;
+                }
             }
         }
     }
-
-    pub fn draw_flipped(
-        &self,
-        buffer: &mut [u32],
-        buffer_width: usize,
-        buffer_height: usize,
-        center_x: i32,
-        center_y: i32,
-    ) {
-        let half_width = (self.width / 2) as i32;
-        let half_height = (self.height / 2) as i32;
-
-        for y in 0..self.height as i32 {
-            let buffer_row = center_y - half_height + y;
-            if buffer_row < 0 || buffer_row >= buffer_height as i32 { continue; }
-
-            let base_index = buffer_row as usize * buffer_width;
-            for x in 0..self.width as i32 {
-                let flipped_x = (self.width as i32 - 1) - x;
-                let buffer_col = center_x - half_width + x;
-                if buffer_col < 0 || buffer_col >= buffer_width as i32 { continue; }
-
-                let color = self.pixels[(y as u32 * self.width + flipped_x as u32) as usize];
-                if (color >> 24) == 0 { continue; }
-
-                buffer[base_index + buffer_col as usize] = color;
+    
+    pub fn draw_flipped(&self, buffer: &mut [u32], buf_w: usize, buf_h: usize, cx: i32, cy: i32) {
+        let hw = (self.width / 2) as i32;
+        let hh = (self.height / 2) as i32;
+        let start_y = (cy - hh).max(0) as usize;
+        let end_y = ((cy + hh).min(buf_h as i32 - 1) as usize).min(buf_h);
+        let start_x = (cx - hw).max(0) as i32;
+        let flip_offset = self.width as i32 - 1;
+        
+        for y in start_y..end_y {
+            let src_y = (y as i32 - (cy - hh)) as u32;
+            let buf_idx = y * buf_w;
+            let src_row = (src_y * self.width) as usize;
+            
+            for x in start_x..(cx + hw) as i32 {
+                if x >= buf_w as i32 { break; }
+                let src_x = flip_offset - (x - (cx - hw));
+                let color = self.pixels[src_row + src_x as usize];
+                if color >> 24 != 0 {
+                    buffer[buf_idx + x as usize] = color;
+                }
             }
         }
     }
