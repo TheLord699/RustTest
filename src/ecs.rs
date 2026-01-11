@@ -1,4 +1,8 @@
 use crate::sprite::Sprite;
+use std::collections::HashMap;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct EntityID(pub usize);
 
 #[derive(Clone)]
 pub struct Collider {
@@ -10,7 +14,7 @@ pub struct Collider {
 
 #[derive(Clone)]
 pub struct Entity {
-    pub name: String,
+    pub id: EntityID,
     pub position_x: i32,
     pub position_y: i32,
     pub velocity_x: f32,
@@ -19,12 +23,15 @@ pub struct Entity {
     pub sprite: Option<Sprite>,
     pub collider: Option<Collider>,
     pub simple_collisions: bool,
+    pub pushable: bool,
+    pub solid: bool,
+    pub mass: f32,
 }
 
 impl Entity {
-    pub fn new(name: &str, x: i32, y: i32, z_order: i32) -> Self {
+    pub fn new(id: EntityID, _name: &str, x: i32, y: i32, z_order: i32) -> Self {
         Self {
-            name: name.to_string(),
+            id,
             position_x: x,
             position_y: y,
             velocity_x: 0.0,
@@ -33,17 +40,24 @@ impl Entity {
             sprite: None,
             collider: None,
             simple_collisions: false,
+            pushable: true,
+            solid: true,
+            mass: 1.0,
         }
     }
     
-    pub fn with_collider(mut self, collider: Option<Collider>, simple_collisions: bool) -> Self {
-        self.collider = collider;
-        if simple_collisions {
-            if let Some(ref c) = self.collider {
-                self.set_collider_centered(c.width, c.height);
-            }
-        }
-        self.simple_collisions = simple_collisions;
+    pub fn with_solid(mut self, solid: bool) -> Self {
+        self.solid = solid;
+        self
+    }
+    
+    pub fn with_pushable(mut self, pushable: bool) -> Self {
+        self.pushable = pushable;
+        self
+    }
+    
+    pub fn with_mass(mut self, mass: f32) -> Self {
+        self.mass = mass;
         self
     }
     
@@ -85,65 +99,232 @@ impl Entity {
 
 #[derive(Clone)]
 pub struct ECSManager {
-    pub entities: Vec<Entity>,
-    pub width: i32,
-    pub height: i32,
+    entities: HashMap<EntityID, Entity>,
+    next_id: usize,
 }
 
 impl ECSManager {
-    pub fn new(width: i32, height: i32) -> Self {
+    pub fn new(_width: i32, _height: i32) -> Self {
         Self {
-            entities: Vec::with_capacity(256),
-            width,
-            height,
+            entities: HashMap::with_capacity(256),
+            next_id: 1,
         }
     }
     
-    pub fn add_entity(&mut self, entity: Entity) -> usize {
-        self.entities.push(entity);
-        self.entities.len() - 1
+    pub fn add_entity(&mut self, entity: Entity) -> EntityID {
+        let id = entity.id;
+        self.entities.insert(id, entity);
+        id
     }
     
-    pub fn get_entity(&self, idx: usize) -> Option<&Entity> {
-        self.entities.get(idx)
+    pub fn create_entity(&mut self, name: &str, x: i32, y: i32, z_order: i32) -> EntityID {
+        let id = EntityID(self.next_id);
+        self.next_id += 1;
+        let entity = Entity::new(id, name, x, y, z_order);
+        self.entities.insert(id, entity);
+        id
     }
     
-    pub fn get_entity_mut(&mut self, idx: usize) -> Option<&mut Entity> {
-        self.entities.get_mut(idx)
+    pub fn get_entity(&self, id: EntityID) -> Option<&Entity> {
+        self.entities.get(&id)
     }
     
-    #[inline]
-    pub fn get_entity_by_name(&self, name: &str) -> Option<usize> {
-        self.entities.iter().position(|e| e.name == name)
+    pub fn get_entity_mut(&mut self, id: EntityID) -> Option<&mut Entity> {
+        self.entities.get_mut(&id)
     }
     
-    pub fn move_entity(&mut self, idx: usize, dx: f32, dy: f32) -> bool {
-        if idx >= self.entities.len() { return false; }
+    pub fn iter_entity_ids(&self) -> impl Iterator<Item = EntityID> + '_ {
+        self.entities.keys().copied()
+    }
+    
+    pub fn move_entity(&mut self, id: EntityID, dx: f32, dy: f32) -> bool {
+        // First, check if the entity exists
+        let entity = match self.entities.get(&id) {
+            Some(e) => e,
+            None => return false,
+        };
         
-        let prev_x = self.entities[idx].position_x;
-        let prev_y = self.entities[idx].position_y;
-        self.entities[idx].move_entity(dx, dy);
+        // Calculate new position
+        let new_x = (entity.position_x as f32 + dx) as i32;
+        let new_y = (entity.position_y as f32 + dy) as i32;
         
-        for (other_idx, other) in self.entities.iter().enumerate() {
-            if other_idx != idx && self.entities[idx].check_collision(other) {
-                self.entities[idx].position_x = prev_x;
-                self.entities[idx].position_y = prev_y;
-                return false;
+        // Get the entity's collider bounds at new position
+        let entity_bounds = match entity.get_collider_bounds() {
+            Some(bounds) => bounds,
+            None => {
+                // Entity has no collider, just move it
+                if let Some(entity_mut) = self.entities.get_mut(&id) {
+                    entity_mut.position_x = new_x;
+                    entity_mut.position_y = new_y;
+                }
+                return true;
             }
+        };
+        
+        // Adjust bounds for new position
+        let dx_i = new_x - entity.position_x;
+        let dy_i = new_y - entity.position_y;
+        let (l1, t1, r1, b1) = entity_bounds;
+        let new_l1 = l1 + dx_i;
+        let new_t1 = t1 + dy_i;
+        let new_r1 = r1 + dx_i;
+        let new_b1 = b1 + dy_i;
+        
+        // Check for collisions with all other entities
+        let mut can_move = true;
+        let mut entities_to_push = Vec::new();
+        
+        for (&other_id, other) in &self.entities {
+            if other_id == id {
+                continue;
+            }
+            
+            // Skip non-solid entities
+            if !other.solid {
+                continue;
+            }
+            
+            // Get other entity's bounds
+            if let Some((l2, t2, r2, b2)) = other.get_collider_bounds() {
+                // Check for collision at new position
+                if new_r1 > l2 && new_l1 < r2 && new_b1 > t2 && new_t1 < b2 {
+                    // Collision detected!
+                    if other.pushable {
+                        // Calculate overlap to determine push direction
+                        let overlap_left = new_r1 - l2;
+                        let overlap_right = r2 - new_l1;
+                        let overlap_top = new_b1 - t2;
+                        let overlap_bottom = b2 - new_t1;
+                        
+                        // Find the minimum overlap direction
+                        let overlaps = [
+                            (overlap_left, "right"),
+                            (overlap_right, "left"),
+                            (overlap_top, "down"),
+                            (overlap_bottom, "up"),
+                        ];
+                        
+                        let min_overlap = overlaps.iter()
+                            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
+                            .unwrap();
+                        
+                        // Calculate push amount based on mass ratio
+                        let push_ratio = entity.mass / (entity.mass + other.mass);
+                        let push_amount = min_overlap.0 as f32 * push_ratio;
+                        
+                        // Store push information
+                        match min_overlap.1 {
+                            "right" => entities_to_push.push((other_id, push_amount, 0.0)),
+                            "left" => entities_to_push.push((other_id, -push_amount, 0.0)),
+                            "down" => entities_to_push.push((other_id, 0.0, push_amount)),
+                            "up" => entities_to_push.push((other_id, 0.0, -push_amount)),
+                            _ => {}
+                        }
+                    } else {
+                        // Collision with unpushable entity - can't move
+                        can_move = false;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // If we can move, update position
+        if can_move {
+            if let Some(entity_mut) = self.entities.get_mut(&id) {
+                entity_mut.position_x = new_x;
+                entity_mut.position_y = new_y;
+            }
+            
+            // Process pushed entities (with a push depth limit to prevent chains)
+            if !entities_to_push.is_empty() {
+                self.process_pushed_entities(entities_to_push, id);
+            }
+            
+            true
+        } else {
+            false
+        }
+    }
+    
+    // Helper method to process pushed entities without causing chain reactions
+    fn process_pushed_entities(&mut self, entities_to_push: Vec<(EntityID, f32, f32)>, _original_pusher: EntityID) {
+        // Only process a limited number of pushes to prevent chains
+        const MAX_PUSH_DEPTH: usize = 1;
+        
+        for (i, (other_id, push_x, push_y)) in entities_to_push.iter().enumerate() {
+            if i >= MAX_PUSH_DEPTH {
+                break;
+            }
+            
+            // Only push a small amount
+            let push_x = push_x.min(10.0).max(-10.0);
+            let push_y = push_y.min(10.0).max(-10.0);
+            
+            // Simple move without pushing others
+            self.simple_move_entity(*other_id, push_x, push_y);
+        }
+    }
+    
+    // Helper method for simple movement without pushing other entities
+    fn simple_move_entity(&mut self, id: EntityID, dx: f32, dy: f32) -> bool {
+        let entity = match self.entities.get(&id) {
+            Some(e) => e,
+            None => return false,
+        };
+        
+        let new_x = (entity.position_x as f32 + dx) as i32;
+        let new_y = (entity.position_y as f32 + dy) as i32;
+        
+        // Check for collisions at new position - only with unpushable entities
+        if let Some(entity_bounds) = entity.get_collider_bounds() {
+            let dx_i = new_x - entity.position_x;
+            let dy_i = new_y - entity.position_y;
+            let (l1, t1, r1, b1) = entity_bounds;
+            let new_l1 = l1 + dx_i;
+            let new_t1 = t1 + dy_i;
+            let new_r1 = r1 + dx_i;
+            let new_b1 = b1 + dy_i;
+            
+            for (&other_id, other) in &self.entities {
+                if other_id == id {
+                    continue;
+                }
+                
+                // Only check collisions with solid, unpushable entities
+                if other.solid && !other.pushable {
+                    if let Some((l2, t2, r2, b2)) = other.get_collider_bounds() {
+                        if new_r1 > l2 && new_l1 < r2 && new_b1 > t2 && new_t1 < b2 {
+                            // Can't move into unpushable entity
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Update position
+        if let Some(entity_mut) = self.entities.get_mut(&id) {
+            entity_mut.position_x = new_x;
+            entity_mut.position_y = new_y;
         }
         
         true
     }
     
-    pub fn get_collisions(&self, idx: usize) -> Vec<usize> {
-        let mut collisions = Vec::new();
-        if let Some(entity) = self.entities.get(idx) {
-            for (other_idx, other) in self.entities.iter().enumerate() {
-                if other_idx != idx && entity.check_collision(other) {
-                    collisions.push(other_idx);
-                }
-            }
-        }
-        collisions
+    pub fn iter_entities(&self) -> impl Iterator<Item = &Entity> {
+        self.entities.values()
+    }
+    
+    pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+        self.entities.values_mut()
+    }
+    
+    pub fn remove_entity(&mut self, id: EntityID) -> Option<Entity> {
+        self.entities.remove(&id)
+    }
+    
+    pub fn clear(&mut self) {
+        self.entities.clear();
     }
 }

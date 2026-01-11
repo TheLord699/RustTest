@@ -1,17 +1,42 @@
 {
-    "comments":{
+    "comments": {
         "note": "not intending to use any of this info, ts just for shit Ill forget",
-        "attack_sequence": "the amount of damage for each attack, so 1st will deal 10 and 2nd will deal 15"
+        "attack_sequence": "the amount of damage for each attack, so 1st will deal 10 and 2nd will deal 15",
+        "hitbox_scale": "higher number = smaller hitbox (sprite_dimensions / hitbox_scale)",
+        "dimensions": "[width_multiplier, height_multiplier] - multiply sprite size by these values",
+        "states": "animation states and their properties",
+        "ai_type": "behavior type for enemy AI (must match Lua script name)",
+        "aggro_range": "distance at which enemy detects player",
+        "attack_range": "distance at which enemy can attack",
+        "attack_cooldown": "time between attacks in seconds",
+        "knockback_resistance": "0-1, resistance to knockback",
+        "experience": "XP dropped when killed"
     },
 
-    "Bug":{
+
+    "Bug": {
         "health": 100,
-        "speed": 5,
+        "max_health": 100,
+        "speed": 1.0,
+        "damage": 20,
+        "experience": 50,
         "sprite": "assets/sprites/bug.png",
-        "states": {"running": {"animation": null, "animation_speed": 1.2}},
+        "states": {
+            "idle": {"animation": "idle", "animation_speed": 1.0},
+            "walking": {"animation": "walking", "animation_speed": 1.2},
+            "attacking": {"animation": "attack", "animation_speed": 1.5, "damage_frame": 3},
+            "hurt": {"animation": "hurt", "animation_speed": 2.0, "duration": 0.5},
+            "death": {"animation": "death", "animation_speed": 1.0, "looped": false}
+        },
+        "ai_type": "bug", 
+        "aggro_range": 300,
+        "attack_range": 50,
+        "attack_cooldown": 1.5,
+        "knockback_resistance": 0.3,
         "scale": 3,
         "hitbox_scale": 3,
         "dimensions": [5, 5],
-        "attack_sequence": [10, 15]
+        "attack_sequence": [10, 15, 20],
+        "pushable": false
     }
 }

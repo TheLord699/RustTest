@@ -1,1 +1,3 @@
--fix entity hitbox scale
+-fix collisions with enemies
+-fix enemy ai
+-collisions with one entity effects all needs to be fixed

@@ -1,9 +1,10 @@
-use crate::ecs::{ECSManager, Entity};
+use crate::ecs::{ECSManager, Entity, EntityID};
 use crate::renderer::Renderer;
 use crate::animation_manager::AnimationHandler;
 use minifb::Key;
 
 pub struct Player {
+    pub entity_id: EntityID,
     pub entity: Entity,
     pub movement_speed: f32,
     pub input_dx: f32,
@@ -14,7 +15,9 @@ pub struct Player {
 
 impl Player {
     pub fn new(renderer: &mut Renderer) -> Self {
-        let mut entity = Entity::new("player", 100, 100, 2);
+        let entity_id = EntityID(0);
+        let mut entity = Entity::new(entity_id, "player", 100, 100, 2)
+            .with_mass(2.0);
         
         let mut animations = AnimationHandler::new();
         let states = [
@@ -40,7 +43,7 @@ impl Player {
         let collider_height = sprite.height() / 3;
         entity.set_collider_centered(collider_width, collider_height);
         
-        renderer.add_sprite_instance("player", crate::renderer::SpriteInstance {
+        renderer.add_sprite_instance(entity_id, crate::renderer::SpriteInstance {
             sprite: sprite.clone(),
             position_x: entity.position_x,
             position_y: entity.position_y,
@@ -49,6 +52,7 @@ impl Player {
         });
         
         Player {
+            entity_id,
             entity,
             movement_speed: 5.0,
             input_dx: 0.0,
@@ -82,9 +86,9 @@ impl Player {
     }
     
     fn process_movement(&mut self, ecs_manager: &mut ECSManager) {
-        if let Some(idx) = ecs_manager.get_entity_by_name(&self.entity.name) {
-            ecs_manager.move_entity(idx, self.input_dx, self.input_dy);
-            if let Some(updated) = ecs_manager.get_entity(idx) {
+        if ecs_manager.move_entity(self.entity_id, self.input_dx, self.input_dy) {
+            // Update local entity copy from ECS
+            if let Some(updated) = ecs_manager.get_entity(self.entity_id) {
                 self.entity.position_x = updated.position_x;
                 self.entity.position_y = updated.position_y;
             }
@@ -108,9 +112,9 @@ impl Player {
         if let Some(frame) = self.animations.get_current_frame() {
             self.entity.set_sprite(frame.clone());
             
-            renderer.move_sprite(&self.entity.name, self.entity.position_x, self.entity.position_y);
+            renderer.move_sprite(self.entity_id, self.entity.position_x, self.entity.position_y);
             
-            if let Some(instance) = renderer.get_sprite_instance_mut(&self.entity.name) {
+            if let Some(instance) = renderer.get_sprite_instance_mut(self.entity_id) {
                 instance.sprite = frame.clone();
                 instance.flip_horizontal = self.facing == "left";
             }

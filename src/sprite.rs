@@ -63,21 +63,42 @@ impl Sprite {
     pub fn draw(&self, buffer: &mut [u32], buf_w: usize, buf_h: usize, cx: i32, cy: i32) {
         let hw = (self.width / 2) as i32;
         let hh = (self.height / 2) as i32;
+        
+        // Calculate drawing bounds with safety checks
         let start_y = (cy - hh).max(0) as usize;
         let end_y = ((cy + hh).min(buf_h as i32 - 1) as usize).min(buf_h);
         let start_x = (cx - hw).max(0) as i32;
+        let end_x = (cx + hw).min(buf_w as i32 - 1);
+        
+        // Ensure we have valid ranges
+        if start_y >= end_y || start_x >= end_x {
+            return;
+        }
         
         for y in start_y..end_y {
             let src_y = (y as i32 - (cy - hh)) as u32;
+            if src_y >= self.height {
+                continue;
+            }
+            
             let buf_idx = y * buf_w;
             let src_row = (src_y * self.width) as usize;
             
-            for x in start_x..(cx + hw) as i32 {
-                if x >= buf_w as i32 { break; }
+            for x in start_x..end_x {
                 let src_x = (x - (cx - hw)) as u32;
-                let color = self.pixels[src_row + src_x as usize];
-                if color >> 24 != 0 {
-                    buffer[buf_idx + x as usize] = color;
+                if src_x >= self.width {
+                    continue;
+                }
+                
+                let pixel_idx = src_row + src_x as usize;
+                if pixel_idx < self.pixels.len() {
+                    let color = self.pixels[pixel_idx];
+                    if color >> 24 != 0 {
+                        let buffer_idx = buf_idx + x as usize;
+                        if buffer_idx < buffer.len() {
+                            buffer[buffer_idx] = color;
+                        }
+                    }
                 }
             }
         }
@@ -86,22 +107,43 @@ impl Sprite {
     pub fn draw_flipped(&self, buffer: &mut [u32], buf_w: usize, buf_h: usize, cx: i32, cy: i32) {
         let hw = (self.width / 2) as i32;
         let hh = (self.height / 2) as i32;
+        let flip_offset = self.width as i32 - 1;
+        
+        // Calculate drawing bounds with safety checks
         let start_y = (cy - hh).max(0) as usize;
         let end_y = ((cy + hh).min(buf_h as i32 - 1) as usize).min(buf_h);
         let start_x = (cx - hw).max(0) as i32;
-        let flip_offset = self.width as i32 - 1;
+        let end_x = (cx + hw).min(buf_w as i32 - 1);
+        
+        // Ensure we have valid ranges
+        if start_y >= end_y || start_x >= end_x {
+            return;
+        }
         
         for y in start_y..end_y {
             let src_y = (y as i32 - (cy - hh)) as u32;
+            if src_y >= self.height {
+                continue;
+            }
+            
             let buf_idx = y * buf_w;
             let src_row = (src_y * self.width) as usize;
             
-            for x in start_x..(cx + hw) as i32 {
-                if x >= buf_w as i32 { break; }
+            for x in start_x..end_x {
                 let src_x = flip_offset - (x - (cx - hw));
-                let color = self.pixels[src_row + src_x as usize];
-                if color >> 24 != 0 {
-                    buffer[buf_idx + x as usize] = color;
+                if src_x < 0 || src_x as u32 >= self.width {
+                    continue;
+                }
+                
+                let pixel_idx = src_row + src_x as usize;
+                if pixel_idx < self.pixels.len() {
+                    let color = self.pixels[pixel_idx];
+                    if color >> 24 != 0 {
+                        let buffer_idx = buf_idx + x as usize;
+                        if buffer_idx < buffer.len() {
+                            buffer[buffer_idx] = color;
+                        }
+                    }
                 }
             }
         }
